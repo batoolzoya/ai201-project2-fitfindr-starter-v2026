@@ -41,7 +41,7 @@
 
 <!-- Three or four sentences: what a user asks for, and what they get back. -->
 
-
+A user asks a query requesting a fit. For example, a small graphic tee within $25. The agent extracts the description of that fit from the query, checks it against the 40 secondhand listings from Depop, thredUp and Poshmark and returns a match. 
 
 ---
 
@@ -59,10 +59,13 @@
 
 ### `search_listings`
 
-- **What it does:**
-- **Inputs:** <!-- name and type each: `max_price` (float), not "a price" -->
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Filters the listings by price and size, scores what's left by how many description words each listing contains, and returns the best matches first.
+- **Inputs:**
+  - `description` (str) — keywords like "vintage graphic tee". Searched in: title, description, category and style_tags. Case-insensitive. Null fields (like brand) are skipped. Do not match little words: "in", "of", "a", "with" and "the".
+  - `size` (str or None) — e.g. "M". Split the listing’s size on /, spaces and parentheses; it matches if one piece equals the user’s size (ignoring case). "One Size" listings match any size. None means no size filter.
+  - `max_price` (float or None) — keeps listings with price ≤ max_price. None means no price filter.
+- **Returns:** a list of up to 10 listing dicts (all fields: id, title, description, category, style_tags, size, condition, price, colors, brand, platform), sorted by score highest first. Score = the number of query words found in the searched fields (repetition of a word doesn't count). Ties keep original file order.
+- **When it has nothing:** an empty list `[]` — never None, never an error.
 
 ### `suggest_outfit`
 
