@@ -69,17 +69,17 @@ A user asks a query requesting a fit. For example, a small graphic tee within $2
 
 ### `suggest_outfit`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Asks the model for one or two outfits built around the new item, using pieces from the user's wardrobe.
+- **Inputs:** `new_item` (dict) — one listing dict from search_listings. `wardrobe` (dict) — `{"items": [...]}`, each item with id, name, category, colors, style_tags, notes.
+- **Returns:** a non-empty string with 1–2 outfit suggestions that name specific wardrobe items by name.
+- **When it has nothing:** if `wardrobe["items"]` is empty, it returns general styling advice for the item (still a non-empty string) — never "" and never an error.
 
 ### `create_fit_card`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Asks the model for a short social-media caption about the find and the outfit.
+- **Inputs:** `outfit` (str) — the string from suggest_outfit. `new_item` (dict) — the same listing dict.
+- **Returns:** a 2–4 sentence caption string that mentions the item, its price and its platform once each.
+- **When it has nothing:** if `outfit` is empty or only whitespace, it returns the message "Can't write a fit card: no outfit suggestion was given." — no model call, no error.
 
 ---
 
@@ -97,6 +97,8 @@ A user asks a query requesting a fit. For example, a small graphic tee within $2
      function have to be real. -->
 
 **Branch rule:**
+
+If search_listings returns an empty list, put a message in session["message"] that says nothing matched and suggests what to change (raise the max price, drop or change the size, or use different words), then stop without calling suggest_outfit. Otherwise, save the first result to session["selected_item"], pass it to suggest_outfit, save that to session["outfit"], then pass both to create_fit_card and save the result to session["fit_card"].
 
 **Where it lives:** `agent.py::run_agent`
 
