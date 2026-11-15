@@ -119,11 +119,10 @@ run_agent stores every result in the session dict and reads the next tool's inpu
      1. One FULL query and its output, pasted as text.
      2. Your three per-tool terminal tests — the command and what it printed. -->
 
-```
 
+```
 $ python app.py ask 'vintage graphic tee under $30'
 
-```
 
   Found:    Y2K Baby Tee — Butterfly Print — $18.0 on depop
 
@@ -140,46 +139,46 @@ Tuck the Y2K Baby Tee into your wide-leg khaki trousers. Layer the black cropped
 #y2kstyle #babytee #depopshop
 
 0 model calls this session, 2 served from cache
+```
+
 
 
 ```
-
 === A query it can't ===
 
-```
   stopped: No listings matched 'designer ballgown' in size XXS under $5. Try: raise your max price above $5; drop the size or try a size next to XXS; use a more common word for the item (e.g. 'dress', 'jacket', 'tee', 'jeans').
   fit_card is None - it should still be None here
+```
+
 
 
 ```
-
 $ python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
 
-```
 
 [{'id': 'lst_002', 'title': 'Y2K Baby Tee — Butterfly Print', 'description': 'Super cute early 2000s baby tee with butterfly graphic. Fitted crop length. Tag says medium but fits like a small.', 'category': 'tops', 'style_tags': ['y2k', 'vintage', 'graphic tee', 'cottagecore'], 'size': 'S/M', 'condition': 'excellent', 'price': 18.0, 'colors': ['white', 'pink', 'purple'], 'brand': None, 'platform': 'depop'}, {'id': 'lst_006', 'title': 'Graphic Tee — 2003 Tour Bootleg Style', 'description': 'Vintage-style bootleg tee with faded graphic. Slightly boxy fit. 100% cotton, soft and worn-in.', 'category': 'tops', 'style_tags': ['graphic tee', 'vintage', 'grunge', 'streetwear', 'band tee'], 'size': 'L', 'condition': 'good', 'price': 24.0, 'colors': ['black'], 'brand': None, 'platform': 'depop'}, {'id': 'lst_017', 'title': 'Mesh Long-Sleeve Top — Black', 'description': 'Sheer black mesh long-sleeve. Great for layering under a graphic tee or over a bralette. Stretchy material, fits true to size.', 'category': 'tops', 'style_tags': ['y2k', 'grunge', 'goth', 'layering'], 'size': 'S/M', 'condition': 'excellent', 'price': 15.0, 'colors': ['black'], 'brand': None, 'platform': 'depop'}, {'id': 'lst_033', 'title': 'Vintage Band Tee — Faded Grey', 'description': 'Faded grey band-style tee with distressed graphic. Crew neck. Fits boxy. Well-loved but no holes or major damage.', 'category': 'tops', 'style_tags': ['vintage', 'grunge', 'band tee', 'graphic tee', 'streetwear'], 'size': 'L', 'condition': 'fair', 'price': 19.0, 'colors': ['grey', 'charcoal'], 'brand': None, 'platform': 'depop'}, {'id': 'lst_011', 'title': 'Low-Rise Cargo Pants — Khaki', 'description': 'Y2K era low-rise cargo pants. Lots of pockets. Khaki color, slightly distressed at the hems. Great for layering with a long tee.', 'category': 'bottoms', 'style_tags': ['y2k', 'cargo', '2000s', 'streetwear'], 'size': 'W29', 'condition': 'fair', 'price': 27.0, 'colors': ['khaki', 'tan'], 'brand': None, 'platform': 'poshmark'}, {'id': 'lst_015', 'title': 'Vintage Graphic Hoodie — Faded Black', 'description': 'Faded black pullover hoodie with barely-visible vintage graphic on the chest. Cozy interior. Some pilling but adds to the worn-in look.', 'category': 'tops', 'style_tags': ['vintage', 'grunge', 'graphic', 'streetwear'], 'size': 'L', 'condition': 'fair', 'price': 26.0, 'colors': ['black', 'charcoal'], 'brand': None, 'platform': 'depop'}]
-
 ```
 
+
+```
 $ python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(suggest_outfit(load_listings()[0], get_example_wardrobe()))"
 
-```
 
 Grab those Levi's—they are a thrift store holy grail! Since your dark jeans are baggy and high-waisted, these 501s will give you that classic, straight-leg vintage fit.
 
 Outfit one: tuck your white ribbed tank top into the vintage Levi's 501 Jeans — Medium Wash, add the brown leather belt, and finish with the chunky white sneakers and black crossbody bag for an effortless 90s look.
 
 Outfit two: layer the oversized grey crewneck sweatshirt over the vintage Levi's 501 Jeans — Medium Wash, and pair them with your black combat boots for a cozy, streetwear-inspired vibe. At thirty-eight dollars, they're an absolute steal!
-
 ```
 
+
+```
 $ python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('jeans and white sneakers', load_listings()[0]))"
 
-```
 
 Nothing beats a broken-in pair of vintage Levi's 501 jeans for that effortless 90s off-duty look. I'm styling these with crisp white sneakers for the ultimate casual weekend fit. Grab this medium wash staple for just $38 over on my Depop before I change my mind and keep them.
-
 ```
+
 
 ---
 
@@ -301,7 +300,6 @@ Try 5: 'leather jacket'
 3 of 5 passed
 ```
 
-```
 
 ---
 
@@ -356,7 +354,6 @@ Pattern across all five: the plain-code parts (branch, session, criteria 2 and 3
 **Happy path**
 
 ```
-```
 $ python app.py ask 'vintage graphic tee under $30' --trace
 [1] parse_query
       in:  vintage graphic tee under $30
@@ -375,11 +372,9 @@ $ python app.py ask 'vintage graphic tee under $30' --trace
       in:  outfit (549 chars), new_item id=lst_002
       out: Found this adorable butterfly baby tee for just $18.0 and I am obsessed with the early 2000s energy. It is so …
 ```
-```
 
 **Empty search**
 
-```
 ```
 $ python app.py ask 'designer ballgown size XXS under $5' --trace
 [1] parse_query
@@ -415,7 +410,6 @@ Model unavailable (one character of the key changed, `python app.py ask 'chelsea
 Empty search: see the trace above.
 
 
-```
 
 **On the MCP move:** <!-- what changed in your code, and whether anything
 behaved differently afterwards. If the rewire didn't work, say exactly where it
