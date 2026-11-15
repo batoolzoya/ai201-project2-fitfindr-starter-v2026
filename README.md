@@ -61,7 +61,7 @@ A user asks a query requesting a fit. For example, a small graphic tee within $2
 
 - **What it does:** Filters the listings by price and size, scores what's left by how many description words each listing contains, and returns the best matches first.
 - **Inputs:**
-  - `description` (str) — keywords like "vintage graphic tee". Searched in: title, description, category and style_tags. Case-insensitive. Null fields (like brand) are skipped. Do not match little words: "in", "of", "a", "with" and "the".
+  - `description` (str) — keywords like "vintage graphic tee". Searched in: title, description, category and style_tags. Case-insensitive. Null fields (like brand) are skipped. These words are ignored: a, an, the, in, of, with, for, and, or, to, on, my, i, im, looking, want, need, some, something.
   - `size` (str or None) — e.g. "M". Split the listing’s size on /, spaces and parentheses; it matches if one piece equals the user’s size (ignoring case). "One Size" listings match any size. None means no size filter.
   - `max_price` (float or None) — keeps listings with price ≤ max_price. None means no price filter.
 - **Returns:** a list of up to 10 listing dicts (all fields: id, title, description, category, style_tags, size, condition, price, colors, brand, platform), sorted by score highest first. Score = the number of query words found in the searched fields (repetition of a word doesn't count). Ties keep original file order.
@@ -98,11 +98,13 @@ A user asks a query requesting a fit. For example, a small graphic tee within $2
 
 **Branch rule:**
 
-If search_listings returns an empty list, put a message in session["message"] that says nothing matched and suggests what to change (raise the max price, drop or change the size, or use different words), then stop without calling suggest_outfit. Otherwise, save the first result to session["selected_item"], pass it to suggest_outfit, save that to session["outfit"], then pass both to create_fit_card and save the result to session["fit_card"].
+If search_listings returns an empty list, put a message in session["error"] that says nothing matched and suggests what to change (raise the max price, drop or change the size, or use different words), then stop without calling suggest_outfit. Otherwise, save the first result to session["selected_item"], pass it to suggest_outfit, save that to session["outfit_suggestion"], then pass both to create_fit_card and save the result to session["fit_card"].
 
 **Where it lives:** `agent.py::run_agent`
 
 **How the query is parsed:** <!-- regex, string splitting, or asking the model — say which -->
+
+Regex in agent.py::parse_query. max_price is the number after "under", "below", "less than", "max", "up to" or "$". size is the word after "size". description is what's left, with "looking for", "i want", "i need" and "show me" removed.
 
 **What moves through the session:** <!-- which fields, in what order -->
 
