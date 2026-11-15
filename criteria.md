@@ -28,6 +28,7 @@ tool calls and returns a fit card — in at least 4 of 5 tries.
 <!-- Why 4 of 5 and not 5 of 5? Something about your search, probably —
      "my search is a plain keyword match and some phrasings will miss" is a
      real answer. -->
+The plain code steps have passed if the matching query has matched at least one listing, however, AI can fail to produce an output due to reasons such as overloaded service or maxxed out token limit.
 
 ---
 
@@ -39,6 +40,7 @@ Given a query that matches no listings, the agent stops before calling
 **Why this target:**
 <!-- Why is 5 of 5 reasonable here when criterion 1 isn't? What's different
      about this path? -->
+5 out of 5 is reasonable here since the first tool is plain code that checks for keywords and is programmed to stop if there is no match. We expect it to behave this way every time without fail.
 
 ---
 
@@ -54,10 +56,10 @@ Given a query that matches no listings, the agent stops before calling
      compares session["selected_item"] against what actually reached
      suggest_outfit is the shape you're after. -->
 
-
+For the example query, 'vintage graphic tee under $30', the id of the selected_item matches that of search_results[0] and of the item passed to suggest_outfit — 5 of 5 tries.
 
 **Why this target:**
-
+If we do not have a perfect data pipeline as the selected item is carried through steps, we need to fix the pipeline. AI is not involved in this process so any miss will be attributed to a bug in our code.
 
 
 ---
@@ -75,11 +77,11 @@ Given a query that matches no listings, the agent stops before calling
      sentence? A card longer than a caption anyone would post? Any of those can
      be turned into a number. -->
 
-
+For ‘vintage graphic tee under $30’, the fit card returns a 2–4 sentence caption string that mentions the item title, its price and its platform once each — at least 4 of 5 tries.
 
 **Why this target:**
 
-
+AI will be generating the fit card and isn't necessarily going to give perfect outfput each time. A small error margin is bearable.
 
 ---
 
@@ -92,11 +94,17 @@ Given a query that matches no listings, the agent stops before calling
      search respects a price ceiling — anything, as long as it names a number
      or an observable outcome. -->
 
+For the following queries, we receive the respective first results in at least 4 out of 5 queries:
+'jean jacket':lst_007 
+'graphic t-shirt': lst_002, lst_006 or lst_033
+'band shirt under $25': lst_033 or lst_006
+'chunky knit sweater': lst_008
+'leather jacket': lst_022
 
 
 **Why this target:**
 
-
+The other listings are too far off and we want the parsing to have a high level of accuracy matching keywords.
 
 ---
 
