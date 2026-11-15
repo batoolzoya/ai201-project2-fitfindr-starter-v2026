@@ -151,8 +151,8 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
         f"Price: ${new_item.get('price')}\n"
         f"Platform: {new_item.get('platform')}\n"
         f"How I'm styling it: {outfit}\n\n"
-        "Write a 2-4 sentence caption about this find. Mention the item, the "
-        "price and the platform exactly once each. Be specific about the vibe. "
-        "At most 3 hashtags, at the end."
+        "Write a 2-4 sentence caption about this find. Use the item's exact title, "
+        f"'{new_item.get('title')}', word for word, exactly once. Mention the "
+        "price and the platform exactly once each. Be specific about the vibe. "        "At most 3 hashtags, at the end."
     )
     return generate(prompt, system=system)
