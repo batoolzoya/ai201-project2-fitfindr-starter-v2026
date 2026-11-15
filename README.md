@@ -41,7 +41,7 @@
 
 <!-- Three or four sentences: what a user asks for, and what they get back. -->
 
-A user asks a query requesting a fit. For example, a small graphic tee within $25. The agent extracts the description of that fit from the query, checks it against the 40 secondhand listings from Depop, thredUp and Poshmark and returns a match. 
+A user types what they're looking for in plain words, like 'vintage graphic tee under $30' or '90s track jacket in size M'. FitFindr pulls the description, size and price ceiling out of the query and searches 40 secondhand listings from Depop, thredUp and Poshmark for the best match. It then asks Gemini for one or two outfits that pair the find with clothes the user already owns, and writes a short caption they could post. If nothing matches, it stops before the outfit step and tells the user what to change (raise the price, drop the size, or use a more common word).
 
 ---
 
@@ -108,6 +108,8 @@ Regex in agent.py::parse_query. max_price is the number after "under", "below", 
 
 **What moves through the session:** <!-- which fields, in what order -->
 
+What moves through the session: run_agent stores every result in the session dict and reads the next tool's inputs back out of it. session["parsed"] (description, size, max_price) feeds search_listings; its list goes in session["search_results"]; the first result is copied to session["selected_item"], which is what suggest_outfit receives along with session["wardrobe"]; its text goes in session["outfit_suggestion"], which create_fit_card receives with the same selected_item; the caption goes in session["fit_card"]. On the empty branch, session["error"] gets the message and the later fields stay None.
+
 ---
 
 ## Sample Run
@@ -117,27 +119,40 @@ Regex in agent.py::parse_query. max_price is the number after "under", "below", 
      1. One FULL query and its output, pasted as text.
      2. Your three per-tool terminal tests — the command and what it printed. -->
 
-**One full query**
+$ python app.py ask 'vintage graphic tee under $30'
 
-```
-$ python app.py ask '...'
+  Found:    Y2K Baby Tee — Butterfly Print — $18.0 on depop
 
-```
+  Outfit:   Grab this tee! It is a total steal and will look amazing with your current pieces.
 
-**The three tools, tested one at a time**
+Outfit 1: Casual Street
+Pair the Y2K Baby Tee with your baggy straight-leg jeans, dark wash. Throw on the vintage black denim jacket and finish with chunky white sneakers and the black crossbody bag for an effortless 2000s look.
 
-```
+Outfit 2: Y2K Contrast
+Tuck the Y2K Baby Tee into your wide-leg khaki trousers. Layer the black cropped zip hoodie right over top, left unzipped to show the butterfly print. Add the black combat boots to ground the soft pastel colors.
+
+  Fit card: Found this adorable butterfly baby tee for just $18.0 and I am obsessed with the early 2000s energy. It is so easy to dress down with baggy denim or toughen up with combat boots and a zip hoodie. Snag it on my depop before I change my mind and keep it.
+
+#y2kstyle #babytee #depopshop
+
+0 model calls this session, 2 served from cache
+
+=== A query it can't ===
+  stopped: No listings matched 'designer ballgown' in size XXS under $5. Try: raise your max price above $5; drop the size or try a size next to XXS; use a more common word for the item (e.g. 'dress', 'jacket', 'tee', 'jeans').
+  fit_card is None - it should still be None here
+
 $ python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
+[{'id': 'lst_002', 'title': 'Y2K Baby Tee — Butterfly Print', 'description': 'Super cute early 2000s baby tee with butterfly graphic. Fitted crop length. Tag says medium but fits like a small.', 'category': 'tops', 'style_tags': ['y2k', 'vintage', 'graphic tee', 'cottagecore'], 'size': 'S/M', 'condition': 'excellent', 'price': 18.0, 'colors': ['white', 'pink', 'purple'], 'brand': None, 'platform': 'depop'}, {'id': 'lst_006', 'title': 'Graphic Tee — 2003 Tour Bootleg Style', 'description': 'Vintage-style bootleg tee with faded graphic. Slightly boxy fit. 100% cotton, soft and worn-in.', 'category': 'tops', 'style_tags': ['graphic tee', 'vintage', 'grunge', 'streetwear', 'band tee'], 'size': 'L', 'condition': 'good', 'price': 24.0, 'colors': ['black'], 'brand': None, 'platform': 'depop'}, {'id': 'lst_017', 'title': 'Mesh Long-Sleeve Top — Black', 'description': 'Sheer black mesh long-sleeve. Great for layering under a graphic tee or over a bralette. Stretchy material, fits true to size.', 'category': 'tops', 'style_tags': ['y2k', 'grunge', 'goth', 'layering'], 'size': 'S/M', 'condition': 'excellent', 'price': 15.0, 'colors': ['black'], 'brand': None, 'platform': 'depop'}, {'id': 'lst_033', 'title': 'Vintage Band Tee — Faded Grey', 'description': 'Faded grey band-style tee with distressed graphic. Crew neck. Fits boxy. Well-loved but no holes or major damage.', 'category': 'tops', 'style_tags': ['vintage', 'grunge', 'band tee', 'graphic tee', 'streetwear'], 'size': 'L', 'condition': 'fair', 'price': 19.0, 'colors': ['grey', 'charcoal'], 'brand': None, 'platform': 'depop'}, {'id': 'lst_011', 'title': 'Low-Rise Cargo Pants — Khaki', 'description': 'Y2K era low-rise cargo pants. Lots of pockets. Khaki color, slightly distressed at the hems. Great for layering with a long tee.', 'category': 'bottoms', 'style_tags': ['y2k', 'cargo', '2000s', 'streetwear'], 'size': 'W29', 'condition': 'fair', 'price': 27.0, 'colors': ['khaki', 'tan'], 'brand': None, 'platform': 'poshmark'}, {'id': 'lst_015', 'title': 'Vintage Graphic Hoodie — Faded Black', 'description': 'Faded black pullover hoodie with barely-visible vintage graphic on the chest. Cozy interior. Some pilling but adds to the worn-in look.', 'category': 'tops', 'style_tags': ['vintage', 'grunge', 'graphic', 'streetwear'], 'size': 'L', 'condition': 'fair', 'price': 26.0, 'colors': ['black', 'charcoal'], 'brand': None, 'platform': 'depop'}]
 
-```
+$ python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(suggest_outfit(load_listings()[0], get_example_wardrobe()))"
+Grab those Levi's—they are a thrift store holy grail! Since your dark jeans are baggy and high-waisted, these 501s will give you that classic, straight-leg vintage fit.
 
-```
-$ python -c "from tools import suggest_outfit; ..."
+Outfit one: tuck your white ribbed tank top into the vintage Levi's 501 Jeans — Medium Wash, add the brown leather belt, and finish with the chunky white sneakers and black crossbody bag for an effortless 90s look.
 
-```
+Outfit two: layer the oversized grey crewneck sweatshirt over the vintage Levi's 501 Jeans — Medium Wash, and pair them with your black combat boots for a cozy, streetwear-inspired vibe. At thirty-eight dollars, they're an absolute steal!
 
-```
-$ python -c "from tools import create_fit_card; ..."
+$ python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('jeans and white sneakers', load_listings()[0]))"
+Nothing beats a broken-in pair of vintage Levi's 501 jeans for that effortless 90s off-duty look. I'm styling these with crisp white sneakers for the ultimate casual weekend fit. Grab this medium wash staple for just $38 over on my Depop before I change my mind and keep them.
 
 ```
 
@@ -154,15 +169,15 @@ $ python -c "from tools import create_fit_card; ..."
 
 **Moment 1**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* I provided Claude with my first size rule for search_listings i.e., a listing matches when an exact match is present, and then I asked whether this can be built from spec.
+- *What came back:* It let me know that the rule was not specific enough i.e., would M count as present in S/M? Additionally, I thought that would neglect One Size listings.
+- *What I changed:* I rewrote the rule to be more specific and split the listings' size on /, space and parantheses. Additionally, I created the rule that One Size matches any size.
 
 **Moment 2**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* I asked Claude to check my reasoning from criterion 1, which was that a wardrobe that doesn't go with the item could stop the fit card.
+- *What came back:* It pointed out that a mismatched wardrobe would simply return a bad fit card and would still return a fit card. 
+- *What I changed:* This made me reflect on each step in the pipeline and I rewrote my reason to be due to failing AI calls instead.
 
 <!-- ═══════════════════════ UNIT 4 — THE TEST ═══════════════════════
 
