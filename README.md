@@ -204,6 +204,13 @@ Nothing beats a broken-in pair of vintage Levi's 501 jeans for that effortless 9
 - *What came back:* It pointed out that a mismatched wardrobe would simply return a bad fit card and would still return a fit card. 
 - *What I changed:* This made me reflect on each step in the pipeline and I rewrote my reason to be due to failing AI calls instead.
 
+**Moment 3 (unit 4)**
+
+- *What I asked for:* I gave Claude my before run log and asked it to call each criterion against my targets and find the cause of each miss.
+- *What came back:* It marked criterion 4 MISSED 0/5, because no card used the exact title, and showed that both criterion 5 misses had the same cause: a query word not in the data, a 1-point tie, and file order picking the wrong listing.
+- *What I changed:* I picked one improvement, the fit card prompt, because it was the bigger miss and the diagnosis pointed straight at one line. I left search for What's Still Broken rather than changing two things at once.
+
+
 <!-- ═══════════════════════ UNIT 4 — THE TEST ═══════════════════════
 
      Don't fill these in during unit 3.
@@ -428,23 +435,35 @@ search_listings is registered in `mcp_server.py` with a description written for 
 
 **What I changed:**
 
+One line of the prompt in `tools.py::create_fit_card`. Before, it said "Mention the item, the price and the platform exactly once each." Now it says "Use the item's exact title, '<title>', word for word, exactly once. Mention the price and the platform exactly once each." Nothing else changed (search, loop, session and the other prompt are the same).
+
 **Which failure it was meant to fix:**
+
+Criterion 4, which missed 0/5 in the before run. My diagnosis was that the prompt never asked for the title word for word, so the model paraphrased it ("butterfly baby tee") every time. Price and platform already passed, so the title was the only thing to fix.
 
 ### Run Log — After
 
 | Criterion | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
 |---|---|---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |  |  |
+| 1. Matching query completes all three tools | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 2. Impossible query stops before suggest_outfit, names what to change | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 3. search_results[0] id = selected_item id = id passed to suggest_outfit | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 4. Fit card: 2–4 sentences, item title, price, platform once each | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 5. Differently-worded queries put an expected listing first | 4 of 5 | FAIL | PASS | FAIL | PASS | PASS | MISSED (3/5) |
+
+From `python run_eval.py --label after` (`results/run_..._after.md`) and `python check_search.py`.
+
+Criterion 4, after — `tools.py::create_fit_card`, scenario "fit card content", Try 1:
+
+```
+Found the ultimate Y2K Baby Tee — Butterfly Print and I'm obsessed with this nostalgic early 2000s energy. It's up on my Depop right now for $18.0, ready for you to style with baggy denim or wide-leg trousers.
+
+#y2k #thrifted #babytee
+```
 
 **Did it help, and how do I know:**
 
-<!-- If it made things worse, say that. Honestly reported, that earns full
-     credit and is more interesting than one that worked. -->
-
+Yes, for the criterion it targeted. Criterion 4 went from 0/5 to 5/5: all five "fit card content" cards contain "Y2K Baby Tee — Butterfly Print" exactly, are 2–3 sentences (hashtags not counted, same rule as the before run), and mention the price and platform once each. The other criteria didn't move — 1, 2 and 3 stayed 5/5 and 5 stayed 3/5 — which is what I'd expect from a change that only touched the fit card prompt. One side effect: with the exact title forced in, some captions read more like a listing than a post (e.g. "Every closet needs a good Denim Jacket — Light Wash, Cropped" from the empty-wardrobe runs).
 
 
 ---
@@ -455,7 +474,11 @@ search_listings is registered in `mcp_server.py` with a description written for 
      you did. "I ran out of time" is fine if it's true. Pretending nothing is
      left is not. -->
 
+**Criterion 5 (search wording) — still MISSED, 3/5.** I didn't touch search, because the unit allows one improvement and criterion 4 was the bigger miss (0/5). The cause is that search only counts exact words: "jean" and "shirt" never appear in the right listings, so the right item ties with others at 1 point and file order decides. What I'd do next: add a small synonym list in `tools.py::search_listings` before scoring (jean→denim, shirt/t-shirt→tee, sweater→knit), and break ties by matches in the title rather than file order. I'd then re-run `check_search.py`, plus some new phrasings, since a synonym list built from these five queries could just be fitting the test.
 
+**Criterion 4 may be measuring the wrong thing.** It now passes 5/5, but forcing the exact listing title makes some captions sound like product listings, which goes against what a fit card is for. If I revised it, I'd keep price and platform and change "item title" to something like "names the item's type and one detail from its title", with the original line left in place. I haven't revised it here, because it measured what I wrote and I'd rather report that.
+
+**Not tested:** what happens when the model is slow rather than unreachable, and how the agent handles queries with two sizes or prices in them.
 
 <!-- ═════════════════════════════════════════════════════════════════════
 
