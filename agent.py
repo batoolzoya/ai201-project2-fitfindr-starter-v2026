@@ -8,14 +8,20 @@ Branch rule (see README.md, Planning Loop):
     saying what the user could change, and stop without calling suggest_outfit.
     Otherwise take the first result as session["selected_item"], run
     suggest_outfit, then create_fit_card, reading each input from the session.
+
+Unit 4 additions:
+    - search_listings is called through MCP (mcp_client.call_tool)
+    - one trace.step() per step
+    - handlers for the model being unreachable and for MCP failing
 """
 
 import re
 
 import config  # noqa: F401
 import trace
-from tools import search_listings, suggest_outfit, create_fit_card
-from generate import ModelUnavailable  # noqa: F401 - handler comes in unit 4
+from tools import suggest_outfit, create_fit_card
+from generate import ModelUnavailable
+from mcp_client import call_tool, MCPError
 
 
 # -- session state -------------------------------------------------------------
@@ -86,6 +92,16 @@ def _no_results_message(parsed: dict) -> str:
     return f"No listings matched {looked_for}. Try: " + "; ".join(tips) + "."
 
 
+def _model_down_message(item: dict, exc: Exception) -> str:
+    """The model couldn't be reached: say what we still found and what to do."""
+    return (
+        f"Found {item.get('title')} (${item.get('price')} on {item.get('platform')}), "
+        f"but couldn't reach the AI model to suggest an outfit or write a fit card. "
+        f"Reason: {exc} "
+        f"Once that's fixed, run the same query again."
+    )
+
+
 # -- planning loop -------------------------------------------------------------
 
 def run_agent(query: str, wardrobe: dict) -> dict:
@@ -101,35 +117,90 @@ def run_agent(query: str, wardrobe: dict) -> dict:
     steps += 1
     trace.check_iterations(steps)
     session["parsed"] = parse_query(query)
-
-    # Step 2: search, reading the inputs back out of the session.
-    steps += 1
-    trace.check_iterations(steps)
-    parsed = session["parsed"]
-    session["search_results"] = search_listings(
-        parsed["description"], size=parsed["size"], max_price=parsed["max_price"]
+    p = session["parsed"]
+    trace.step(
+        "parse_query",
+        inputs=query,
+        returned=f"description='{p['description']}', size={p['size']}, max_price={p['max_price']}",
     )
 
-    # THE BRANCH: nothing came back -> say what to change and stop.
-    if len(session["search_results"]) == 0:
-        session["error"] = _no_results_message(parsed)
+    # Step 2: search, through MCP, reading the inputs back out of the session.
+    steps += 1
+    trace.check_iterations(steps)
+    args = {
+        "description": p["description"],
+        "size": p["size"],
+        "max_price": p["max_price"],
+    }
+    try:
+        session["search_results"] = call_tool("search_listings", args) or []
+    except MCPError as exc:
+        session["error"] = (
+            "The search service (MCP server) couldn't be reached, so nothing was searched. "
+            f"Details: {exc} Run `python mcp_client.py` to check the server, then try again."
+        )
+        trace.step("search_listings (via MCP)", inputs=f"description='{p['description']}', size={p['size']}, max_price={p['max_price']}", note="MCP call failed -> stop")
         return session
 
+    results = session["search_results"]
+
+    # THE BRANCH: nothing came back -> say what to change and stop.
+    if len(results) == 0:
+        session["error"] = _no_results_message(p)
+        trace.step(
+            "search_listings (via MCP)",
+            inputs=f"description='{p['description']}', size={p['size']}, max_price={p['max_price']}",
+            returned=results,
+            note="branch: empty list -> stop, suggest_outfit is NOT called",
+        )
+        return session
+
+    trace.step(
+        "search_listings (via MCP)",
+        inputs=f"description='{p['description']}', size={p['size']}, max_price={p['max_price']}",
+        returned=results,
+        note=f"branch: {len(results)} results -> continue; search_results[0] id={results[0]['id']}",
+    )
+
     # Otherwise pick the best match.
-    session["selected_item"] = session["search_results"][0]
+    session["selected_item"] = results[0]
+    item = session["selected_item"]
+    trace.step(
+        "select_item",
+        inputs="search_results[0]",
+        returned=f"selected_item id={item['id']} - {item['title']}",
+    )
 
     # Step 3: outfit, using the item stored in the session.
     steps += 1
     trace.check_iterations(steps)
-    session["outfit_suggestion"] = suggest_outfit(
-        session["selected_item"], session["wardrobe"]
+    n_items = len((session["wardrobe"] or {}).get("items") or [])
+    try:
+        session["outfit_suggestion"] = suggest_outfit(session["selected_item"], session["wardrobe"])
+    except (ModelUnavailable, RuntimeError) as exc:
+        session["error"] = _model_down_message(item, exc)
+        trace.step("suggest_outfit", inputs=f"new_item id={item['id']}, wardrobe: {n_items} items",
+                   note="model unreachable -> stop")
+        return session
+    trace.step(
+        "suggest_outfit",
+        inputs=f"new_item id={session['selected_item']['id']}, wardrobe: {n_items} items",
+        returned=session["outfit_suggestion"],
     )
 
     # Step 4: fit card, using the outfit and item stored in the session.
     steps += 1
     trace.check_iterations(steps)
-    session["fit_card"] = create_fit_card(
-        session["outfit_suggestion"], session["selected_item"]
+    try:
+        session["fit_card"] = create_fit_card(session["outfit_suggestion"], session["selected_item"])
+    except (ModelUnavailable, RuntimeError) as exc:
+        session["error"] = _model_down_message(item, exc)
+        trace.step("create_fit_card", inputs=f"new_item id={item['id']}", note="model unreachable -> stop")
+        return session
+    trace.step(
+        "create_fit_card",
+        inputs=f"outfit ({len(session['outfit_suggestion'])} chars), new_item id={session['selected_item']['id']}",
+        returned=session["fit_card"],
     )
 
     return session
@@ -153,12 +224,14 @@ if __name__ == "__main__":
     from utils.data_loader import get_example_wardrobe
 
     print("=== A query the data can match ===")
+    trace.start_trace()
     _show(run_agent(
         query="looking for a vintage graphic tee under $30",
         wardrobe=get_example_wardrobe(),
     ))
 
     print("\n=== A query it can't ===")
+    trace.start_trace()
     _show(run_agent(
         query="designer ballgown size XXS under $5",
         wardrobe=get_example_wardrobe(),
