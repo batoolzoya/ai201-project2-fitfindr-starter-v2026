@@ -104,7 +104,7 @@ If search_listings returns an empty list, put a message in session["error"] that
 
 **How the query is parsed:** <!-- regex, string splitting, or asking the model — say which -->
 
-Regex in agent.py::parse_query. max_price is the number after "under", "below", "less than", "max", "up to" or "$". size is the word after "size". description is what's left, with "looking for", "i want", "i need" and "show me" removed.
+Regex in agent.py::parse_query. max_price is the number after "under", "below", "less than", "max", "up to" or "$". size is the word aft-*4333333333333333333333333333333333333333333er "size". description is what's left, with "looking for", "i want", "i need" and "show me" removed.
 
 **What moves through the session:** <!-- which fields, in what order -->
 
@@ -213,26 +213,85 @@ Nothing beats a broken-in pair of vintage Levi's 501 jeans for that effortless 9
 
 ## Run Log — Before
 
-<!-- Five criteria, five tries each, in this exact format.
-
-     Five, because your criteria are written out of five. Mark each try PASS
-     or FAIL, count the passes, and read that count against your target — a
-     row targeting 4 of 5 with three PASS cells is MISSED (3/5).
-
-     `python run_eval.py --label before` runs everything and writes the table
-     into results/. Paste it here and fill in the verdicts. -->
-
 | Criterion | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
 |---|---|---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |  |  |
+| 1. Matching query completes all three tools | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 2. Impossible query stops before suggest_outfit, names what to change | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 3. search_results[0] id = selected_item id = id passed to suggest_outfit | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 4. Fit card: 2–4 sentences, item title, price, platform once each | 4 of 5 | FAIL | FAIL | FAIL | FAIL | FAIL | MISSED (0/5) |
+| 5. Differently-worded queries put an expected listing first | 4 of 5 | FAIL | PASS | FAIL | PASS | PASS | MISSED (3/5) |
 
-**Real output from one try**, pasted as text, naming the file and function
-that produced it:
+Criteria 1–4: `python run_eval.py --label before` (file: `results/run_..._before.md`, produced by `run_eval.py::main`, loop `agent.py::run_agent`). Criterion 5 is about search alone (plain code, no model), so its 5 tries are the 5 queries in criteria.md, run through MCP by `check_search.py`. Empty wardrobe was also run 5 times as a diagnostic (5/5 returned general advice, no crash).
 
+**Real output from one try per criterion**
+
+Criterion 1 — `agent.py::run_agent`, scenario "matching query completes", Try 1:
+
+```
+- stopped early: no
+- selected_item: Y2K Baby Tee — Butterfly Print ($18.0, depop)
+Fit card:
+Found the ultimate Y2K butterfly baby tee and I am obsessed with the nostalgic print. I've got it listed on depop for $18.0 so you can channel your inner 2000s pop star all summer. It looks so good with baggy denim or toughened up with combat boots. #y2kfashion #babytee #thriftootd
+```
+
+Criterion 2 — `agent.py::run_agent`, scenario "impossible query stops early", Try 1:
+
+```
+- stopped early: yes — No listings matched 'designer ballgown' in size XXS under $5. Try: raise your max price above $5; drop the size or try a size next to XXS; use a more common word for the item (e.g. 'dress', 'jacket', 'tee', 'jeans').
+- selected_item: (none)
+- search_results: 0
+[2] search_listings (via MCP)
+      in:  description='designer ballgown', size=XXS, max_price=5.0
+      out: [] (empty)
+      →    branch: empty list -> stop, suggest_outfit is NOT called
+```
+
+Criterion 3 — `agent.py::run_agent` trace, scenario "selected item is the item passed on", Try 1:
+
+```
+[2] search_listings (via MCP)
+      →    branch: 10 results -> continue; search_results[0] id=lst_002
+[3] select_item
+      in:  search_results[0]
+      out: selected_item id=lst_002 - Y2K Baby Tee — Butterfly Print
+[4] suggest_outfit
+      in:  new_item id=lst_002, wardrobe: 10 items
+```
+
+Criterion 4 — `tools.py::create_fit_card`, scenario "fit card content", Try 1 (FAIL: says "butterfly baby tee", not the title "Y2K Baby Tee — Butterfly Print"):
+
+```
+Absolute peak early 2000s energy with this butterfly baby tee, and it’s giving major nostalgic mall-rat vibes. Grabbed it for just $18.0 over on depop before I hoard all the pastel graphics for myself.
+
+#y2k #babytee #depopshop
+```
+
+Criterion 5 — `check_search.py` (calls `search_listings` via MCP):
+
+```
+Try 1: 'jean jacket'
+   expected: lst_007
+   first:    lst_004 - 90s Track Jacket — Navy/White Stripe
+   top 3:    lst_004, lst_007, lst_022
+   -> FAIL
+Try 2: 'graphic t-shirt'
+   expected: lst_002 or lst_006 or lst_033
+   first:    lst_002 - Y2K Baby Tee — Butterfly Print
+   -> PASS
+Try 3: 'band shirt under $25'
+   expected: lst_033 or lst_006
+   first:    lst_003 - Oversized Flannel Shirt — Plaid Red/Black
+   top 3:    lst_003, lst_006, lst_024
+   -> FAIL
+Try 4: 'chunky knit sweater'
+   expected: lst_008
+   first:    lst_008 - Knit Cardigan — Chunky Brown
+   -> PASS
+Try 5: 'leather jacket'
+   expected: lst_022
+   first:    lst_022 - 90s Leather Bomber — Black
+   -> PASS
+3 of 5 passed
 ```
 
 ```
@@ -259,15 +318,19 @@ that produced it:
 
 | # | Criterion | Target | Verdict | How I decided |
 |---|---|---|---|---|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| 3 |  |  |  |  |
-| 4 |  |  |  |  |
-| 5 |  |  |  |  |
+| 1 | Matching query completes all three tools | 4 of 5 | MET (5/5) | All 5 tries had a fit card and no early stop. |
+| 2 | Impossible query stops before suggest_outfit | 5 of 5 | MET (5/5) | All 5 traces end at step 2 with "suggest_outfit is NOT called", fit_card None, and a message listing three things to change. |
+| 3 | Selected item is the item passed on | 5 of 5 | MET (5/5) | In every trace, search_results[0], selected_item and the new_item passed to suggest_outfit are all lst_002. |
+| 4 | Fit card content | 4 of 5 | MISSED (0/5) | All 5 cards were 2–3 sentences (hashtags not counted) with the price and platform once each, but none contained the item title "Y2K Baby Tee — Butterfly Print". My criterion says title, so each try fails. |
+| 5 | Differently-worded queries | 4 of 5 | MISSED (3/5) | 'jean jacket' and 'band shirt under $25' put a wrong listing first. |
 
 **Diagnoses**
 
+**Criterion 4 — the model's output (prompt in `tools.py::create_fit_card`).** It missed on 5 of 5. Every card names the item in casual words ("butterfly baby tee", "Y2K butterfly tee") instead of the listing title. The prompt passes the title in but only says "Mention the item, the price and the platform exactly once each" — it never asks for the title word for word, and a listing title with an em dash ("Y2K Baby Tee — Butterfly Print") doesn't read like something a person would post, so the model paraphrases it every time. The tool, branch and session all worked; the prompt didn't ask for what my criterion checks. Price and platform passed on all 5, so the problem is only the title.
 
+**Criterion 5 — the search tool (`tools.py::search_listings`).** Both misses have the same mechanism, so it's one problem. Search counts whole words exactly. In 'jean jacket', "jean" appears in no listing ("jeans" is a different word), so every listing with "jacket" scores 1 — four listings tie, ties keep file order, and lst_004 (Track Jacket) comes before lst_007 (Denim Jacket). In 'band shirt under $25', "shirt" matches the Flannel Shirt and "band" matches the two band tees, all at score 1, and the flannel (lst_003) comes first in the file. Pattern: when a query word isn't in the data's vocabulary, the right item can't outscore others and file order decides.
+
+Pattern across all five: the plain-code parts (branch, session, criteria 2 and 3) were perfect, as predicted. Both misses came from words — the model's wording (4) and the user's wording (5).
 
 ---
 
@@ -286,12 +349,64 @@ that produced it:
 **Happy path**
 
 ```
-
+```
+$ python app.py ask 'vintage graphic tee under $30' --trace
+[1] parse_query
+      in:  vintage graphic tee under $30
+      out: description='vintage graphic tee', size=None, max_price=30.0
+[2] search_listings (via MCP)
+      in:  description='vintage graphic tee', size=None, max_price=30.0
+      out: 10 items: Y2K Baby Tee — Butterfly Print, Graphic Tee — 2003 Tour Bootleg Style, Vintage Band Tee — Faded Grey … +7 more
+      →    branch: 10 results -> continue; search_results[0] id=lst_002
+[3] select_item
+      in:  search_results[0]
+      out: selected_item id=lst_002 - Y2K Baby Tee — Butterfly Print
+[4] suggest_outfit
+      in:  new_item id=lst_002, wardrobe: 10 items
+      out: Grab this tee! It is a total steal and will look amazing with your current pieces.   Outfit 1: Casual Street P…
+[5] create_fit_card
+      in:  outfit (549 chars), new_item id=lst_002
+      out: Found this adorable butterfly baby tee for just $18.0 and I am obsessed with the early 2000s energy. It is so …
+```
 ```
 
 **Empty search**
 
 ```
+```
+$ python app.py ask 'designer ballgown size XXS under $5' --trace
+[1] parse_query
+      in:  designer ballgown size XXS under $5
+      out: description='designer ballgown', size=XXS, max_price=5.0
+[2] search_listings (via MCP)
+      in:  description='designer ballgown', size=XXS, max_price=5.0
+      out: [] (empty)
+      →    branch: empty list -> stop, suggest_outfit is NOT called
+
+  No listings matched 'designer ballgown' in size XXS under $5. Try: raise your max price above $5; drop the size or try a size next to XXS; use a more common word for the item (e.g. 'dress', 'jacket', 'tee', 'jeans').
+```
+**Failure modes, triggered on purpose:**
+
+Empty wardrobe (`python app.py ask 'denim jacket under $50' --empty-wardrobe`) — suggest_outfit got 0 items and returned general advice, no crash:
+
+```
+[4] suggest_outfit
+      in:  new_item id=lst_007, wardrobe: 0 items
+      out: Hey there! Grab that cropped light-wash jacket—it is a total wardrobe MVP.   For an easy everyday look, layer …
+```
+
+Model unavailable (one character of the key changed, `python app.py ask 'chelsea boots'`) — new handler in `agent.py::run_agent` catches `ModelUnavailable`:
+
+```
+[4] suggest_outfit
+      in:  new_item id=lst_028, wardrobe: 10 items
+      →    model unreachable -> stop
+
+  Found Suede Chelsea Boots — Tan ($44.0 on poshmark), but couldn't reach the AI model to suggest an outfit or write a fit card. Reason: The model rejected your API key. Check GEMINI_API_KEY in your .env file, or create a fresh key at aistudio.google.com. Once that's fixed, run the same query again.
+```
+
+Empty search: see the trace above.
+
 
 ```
 
@@ -300,7 +415,7 @@ behaved differently afterwards. If the rewire didn't work, say exactly where it
 broke — the error text and the last thing that worked. That earns the point in
 full. -->
 
-
+search_listings is registered in `mcp_server.py` with a description written for an outside agent (units, the size rule, and the empty case `[]`). In `agent.py::run_agent` the direct call was replaced with `mcp_client.call_tool("search_listings", {...})`, and an `MCPError` handler stops the run with a message if the server can't be reached. Nothing behaved differently: the same queries returned the same listings in the same order (the graphic tee query still picks lst_002 first), and the empty search still returns `[]`, so the branch works unchanged. The only visible difference is that each search now starts the server, which adds a moment per run.
 
 ---
 
